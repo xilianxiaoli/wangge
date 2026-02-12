@@ -1,5 +1,124 @@
-# Vue 3 + TypeScript + Vite
+# 网格交易预测工具
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+一个基于 Vue 3 的网格交易策略计算和管理工具。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 功能特性
+
+### 1. 预测管理
+- **列表视图**：首页展示所有已保存的网格预测，支持快速查看和管理
+- **新建预测**：创建新的网格交易策略，设置股票代码和各项参数
+- **查看详情**：查看完整的网格计算结果和统计信息
+- **复制预测**：快速复制现有预测创建新的策略
+- **删除预测**：删除不需要的预测记录
+
+### 2. 网格计算
+- **实时计算**：修改参数时表格数据实时更新
+- **浮动盈亏**：显示每个网格节点的浮动盈亏比例
+- **资金警告**：超过最大投入金额时自动标红提示
+- **价格跌幅**：显示当前价格相比初始价格的涨跌幅
+
+### 3. 数据持久化
+- 所有预测数据自动保存到浏览器 LocalStorage
+- 刷新页面数据不丢失
+- 支持多个预测记录同时管理
+
+### 4. 数据导出
+- **CSV 导出**：将预测结果导出为 Excel 可读的表格文件
+- **截图保存**：一键生成预测结果的高清截图
+
+## 技术栈
+
+- **框架**：Vue 3 + Vite + TypeScript
+- **样式**：Tailwind CSS
+- **UI 组件**：shadcn-vue
+- **工具库**：
+  - `@vueuse/core` - 数据持久化
+  - `html2canvas` - 截图功能
+  - `lucide-vue-next` - 图标库
+
+## 快速开始
+
+### 安装依赖
+\`\`\`bash
+npm install
+\`\`\`
+
+### 开发模式
+\`\`\`bash
+npm run dev
+\`\`\`
+
+### 构建生产版本
+\`\`\`bash
+npm run build
+\`\`\`
+
+### 预览生产构建
+\`\`\`bash
+npm run preview
+\`\`\`
+
+## 使用说明
+
+### 创建新预测
+1. 点击"新建预测"按钮
+2. 填写预测名称（必填）
+3. 设置股票代码（可选）
+4. 配置网格参数：
+   - 初始价格
+   - 买入/卖出网格百分比
+   - 每格买入/卖出金额
+   - 预测网格次数
+   - 最大投入警告线
+5. 右侧实时预览计算结果
+6. 点击"保存预测"
+
+### 查看预测详情
+1. 在列表中点击任意预测卡片
+2. 查看完整的网格数据表格
+3. 可以导出 CSV 或保存截图
+4. 支持复制、编辑或删除操作
+
+### 数据导出
+- **CSV 导出**：包含所有网格节点的详细数据，文件名包含股票代码和日期
+- **截图保存**：生成高清 PNG 图片，方便分享和存档
+
+## 项目结构
+
+\`\`\`
+src/
+├── components/
+│   ├── PredictionList.vue      # 预测列表页
+│   ├── NewPrediction.vue        # 新建预测页
+│   ├── PredictionDetail.vue    # 预测详情页
+│   ├── GridCalculator.vue      # 网格计算器（旧版，已弃用）
+│   └── ui/                      # UI 组件库
+├── composables/
+│   ├── useGridCalculator.ts    # 网格计算逻辑
+│   └── usePredictionStore.ts   # 预测数据管理
+├── types/
+│   └── grid.ts                  # 类型定义
+├── lib/
+│   └── utils.ts                 # 工具函数
+├── App.vue                      # 主应用
+└── main.ts                      # 入口文件
+\`\`\`
+
+## 核心逻辑说明
+
+### 网格计算
+- 从初始价格开始，每跌 X% 买入固定金额
+- 计算持仓均价、累计投入和浮动盈亏
+- 支持资金警告提示
+
+### 卖出策略
+- 按固定金额卖出，剩余持仓保留
+- 不考虑交易费用
+
+### 收益计算
+- 浮动盈亏 = 当前市值 - 累计投入
+- 盈亏比例 = 浮动盈亏 / 累计投入 × 100%
+
+## License
+
+MIT

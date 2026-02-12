@@ -11,6 +11,7 @@ export interface GridStep {
   totalShares: number
   averageCost: number
   floatingPL: number
+  floatingPLPercent: number
   priceDropPercent: number
   isWarning: boolean
 }
