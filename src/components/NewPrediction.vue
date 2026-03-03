@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { usePredictionStore } from '@/composables/usePredictionStore'
 import { useGridCalculator } from '@/composables/useGridCalculator'
+import type { GridSpacingMode } from '@/composables/useGridCalculator'
 import { ArrowLeft, Save, Calculator, RotateCcw } from 'lucide-vue-next'
 import {
   Card,
@@ -35,10 +36,19 @@ const {
   sellAmount,
   gridCount,
   maxInvestment,
+  spacingMode,
+  buyGridFixed,
+  spacingFactor,
   gridData,
   totalRequiredCapital,
   resetDefaults
 } = useGridCalculator()
+
+const spacingModeOptions: { value: GridSpacingMode; label: string; desc: string }[] = [
+  { value: 'percent', label: '等比例间距', desc: '每格下跌固定百分比，越跌绝对间距越小' },
+  { value: 'fixed', label: '等价格间距', desc: '每格下跌固定金额，间距均匀直觉' },
+  { value: 'variable', label: '变间距网格', desc: '靠近初始价密集，越远间距越大' },
+]
 
 // 表单验证
 const isFormValid = computed(() => {
@@ -68,7 +78,10 @@ const savePrediction = () => {
       buyAmount: buyAmount.value,
       sellAmount: sellAmount.value,
       gridCount: gridCount.value,
-      maxInvestment: maxInvestment.value
+      maxInvestment: maxInvestment.value,
+      spacingMode: spacingMode.value,
+      buyGridFixed: buyGridFixed.value,
+      spacingFactor: spacingFactor.value,
     },
     predictionDescription.value.trim() || undefined
   )
@@ -156,6 +169,26 @@ const formatPercent = (value: number) => {
             <CardDescription>设置网格交易的初始条件</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
+            <!-- 间距模式切换 -->
+            <div class="space-y-2">
+              <Label>网格间距模式</Label>
+              <div class="grid grid-cols-1 gap-2">
+                <button
+                  v-for="opt in spacingModeOptions"
+                  :key="opt.value"
+                  type="button"
+                  class="flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors"
+                  :class="spacingMode === opt.value
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/50'"
+                  @click="spacingMode = opt.value"
+                >
+                  <span class="text-sm font-medium">{{ opt.label }}</span>
+                  <span class="text-xs text-muted-foreground">{{ opt.desc }}</span>
+                </button>
+              </div>
+            </div>
+
             <div class="space-y-2">
               <Label for="initialPrice">初始价格 (元) *</Label>
               <Input 
@@ -168,30 +201,75 @@ const formatPercent = (value: number) => {
               />
             </div>
             
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <Label for="buyGridPercent">买入网格 (%) *</Label>
-                <Input 
-                  id="buyGridPercent" 
-                  type="number" 
-                  v-model.number="buyGridPercent" 
-                  min="0.1" 
-                  step="0.1"
-                  :class="{ 'border-red-500': buyGridPercent <= 0 }"
-                />
+            <!-- 等比例间距参数 -->
+            <template v-if="spacingMode === 'percent' || spacingMode === 'variable'">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label for="buyGridPercent">
+                    {{ spacingMode === 'variable' ? '基础网格间距 (%)' : '买入网格 (%)' }} *
+                  </Label>
+                  <Input 
+                    id="buyGridPercent" 
+                    type="number" 
+                    v-model.number="buyGridPercent" 
+                    min="0.1" 
+                    step="0.1"
+                    :class="{ 'border-red-500': buyGridPercent <= 0 }"
+                  />
+                </div>
+                <div class="space-y-2" v-if="spacingMode === 'variable'">
+                  <Label for="spacingFactor">加速系数</Label>
+                  <Input 
+                    id="spacingFactor" 
+                    type="number" 
+                    v-model.number="spacingFactor" 
+                    min="1.0" 
+                    max="5.0"
+                    step="0.1"
+                  />
+                  <p class="text-xs text-muted-foreground">推荐 1.2~2.0，越大越稀疏</p>
+                </div>
+                <div class="space-y-2" v-else>
+                  <Label for="sellGridPercent">卖出网格 (%) *</Label>
+                  <Input 
+                    id="sellGridPercent" 
+                    type="number" 
+                    v-model.number="sellGridPercent" 
+                    min="0.1" 
+                    step="0.1"
+                    :class="{ 'border-red-500': sellGridPercent <= 0 }"
+                  />
+                </div>
               </div>
-              <div class="space-y-2">
-                <Label for="sellGridPercent">卖出网格 (%) *</Label>
-                <Input 
-                  id="sellGridPercent" 
-                  type="number" 
-                  v-model.number="sellGridPercent" 
-                  min="0.1" 
-                  step="0.1"
-                  :class="{ 'border-red-500': sellGridPercent <= 0 }"
-                />
+            </template>
+
+            <!-- 等价格间距参数 -->
+            <template v-if="spacingMode === 'fixed'">
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label for="buyGridFixed">每格下跌金额 (元) *</Label>
+                  <Input 
+                    id="buyGridFixed" 
+                    type="number" 
+                    v-model.number="buyGridFixed" 
+                    min="0.01" 
+                    step="0.01"
+                    :class="{ 'border-red-500': buyGridFixed <= 0 }"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="sellGridPercent">卖出网格 (%) *</Label>
+                  <Input 
+                    id="sellGridPercent" 
+                    type="number" 
+                    v-model.number="sellGridPercent" 
+                    min="0.1" 
+                    step="0.1"
+                    :class="{ 'border-red-500': sellGridPercent <= 0 }"
+                  />
+                </div>
               </div>
-            </div>
+            </template>
 
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-2">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useGridCalculator } from '@/composables/useGridCalculator'
+import type { GridSpacingMode } from '@/composables/useGridCalculator'
 import html2canvas from 'html2canvas'
 import { Download, Image, RotateCcw } from 'lucide-vue-next'
 import {
@@ -30,10 +31,19 @@ const {
   sellAmount,
   gridCount,
   maxInvestment,
+  spacingMode,
+  buyGridFixed,
+  spacingFactor,
   gridData,
   totalRequiredCapital,
   resetDefaults
 } = useGridCalculator()
+
+const spacingModeOptions: { value: GridSpacingMode; label: string; desc: string }[] = [
+  { value: 'percent', label: '等比例间距', desc: '每格下跌固定百分比，越跌绝对间距越小' },
+  { value: 'fixed', label: '等价格间距', desc: '每格下跌固定金额，间距均匀直觉' },
+  { value: 'variable', label: '变间距网格', desc: '靠近初始价密集，越远间距越大' },
+]
 
 const exportRef = ref<HTMLElement | null>(null)
 
@@ -58,10 +68,11 @@ const formatPercent = (value: number) => {
 
 // Export to CSV
 const exportToCSV = () => {
-  const headers = ['网格序号', '当前价格', '相比初始涨跌', '买入金额', '累计投入', '持仓均价', '持仓数量', '浮动盈亏', '盈亏比例', '资金警告']
+  const headers = ['网格序号', '当前价格', '本格间距', '相比初始涨跌', '买入金额', '累计投入', '持仓均价', '持仓数量', '浮动盈亏', '盈亏比例', '资金警告']
   const rows = gridData.value.map(step => [
     step.index,
     step.buyPrice.toFixed(4),
+    step.index === 0 ? '—' : step.gridSpacing.toFixed(4),
     step.priceDropPercent.toFixed(2) + '%',
     step.buyAmount.toFixed(2),
     step.totalInvestment.toFixed(2),
@@ -115,21 +126,65 @@ const captureScreenshot = async () => {
           <CardDescription>设置网格交易的初始条件</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
+          <!-- 间距模式切换 -->
+          <div class="space-y-2">
+            <Label>网格间距模式</Label>
+            <div class="grid grid-cols-1 gap-2">
+              <button
+                v-for="opt in spacingModeOptions"
+                :key="opt.value"
+                type="button"
+                class="flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors"
+                :class="spacingMode === opt.value
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border hover:border-primary/50 hover:bg-muted/50'"
+                @click="spacingMode = opt.value"
+              >
+                <span class="text-sm font-medium">{{ opt.label }}</span>
+                <span class="text-xs text-muted-foreground">{{ opt.desc }}</span>
+              </button>
+            </div>
+          </div>
+
           <div class="space-y-2">
             <Label for="initialPrice">初始价格 (元)</Label>
             <Input id="initialPrice" type="number" v-model.number="initialPrice" min="0" step="0.01" />
           </div>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <div class="space-y-2">
-              <Label for="buyGridPercent">买入网格 (%)</Label>
-              <Input id="buyGridPercent" type="number" v-model.number="buyGridPercent" min="0.1" step="0.1" />
+
+          <!-- 等比例 / 变间距 参数 -->
+          <template v-if="spacingMode === 'percent' || spacingMode === 'variable'">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="buyGridPercent">
+                  {{ spacingMode === 'variable' ? '基础间距 (%)' : '买入网格 (%)' }}
+                </Label>
+                <Input id="buyGridPercent" type="number" v-model.number="buyGridPercent" min="0.1" step="0.1" />
+              </div>
+              <div class="space-y-2" v-if="spacingMode === 'variable'">
+                <Label for="spacingFactor">加速系数</Label>
+                <Input id="spacingFactor" type="number" v-model.number="spacingFactor" min="1.0" max="5.0" step="0.1" />
+                <p class="text-xs text-muted-foreground">推荐 1.2~2.0</p>
+              </div>
+              <div class="space-y-2" v-else>
+                <Label for="sellGridPercent">卖出网格 (%)</Label>
+                <Input id="sellGridPercent" type="number" v-model.number="sellGridPercent" min="0.1" step="0.1" />
+              </div>
             </div>
-            <div class="space-y-2">
-              <Label for="sellGridPercent">卖出网格 (%)</Label>
-              <Input id="sellGridPercent" type="number" v-model.number="sellGridPercent" min="0.1" step="0.1" />
+          </template>
+
+          <!-- 等价格间距参数 -->
+          <template v-if="spacingMode === 'fixed'">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Label for="buyGridFixed">每格下跌 (元)</Label>
+                <Input id="buyGridFixed" type="number" v-model.number="buyGridFixed" min="0.01" step="0.01" />
+              </div>
+              <div class="space-y-2">
+                <Label for="sellGridPercent">卖出网格 (%)</Label>
+                <Input id="sellGridPercent" type="number" v-model.number="sellGridPercent" min="0.1" step="0.1" />
+              </div>
             </div>
-          </div>
+          </template>
 
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
@@ -212,6 +267,7 @@ const captureScreenshot = async () => {
                   <TableRow>
                     <TableHead class="w-[60px]">序号</TableHead>
                     <TableHead>当前价格</TableHead>
+                    <TableHead>本格间距</TableHead>
                     <TableHead>相比初始</TableHead>
                     <TableHead>累计投入</TableHead>
                     <TableHead>持仓均价</TableHead>
@@ -235,6 +291,11 @@ const captureScreenshot = async () => {
                         <span>{{ formatCurrency(step.buyPrice) }}</span>
                         <span class="text-xs text-muted-foreground">买入 {{ formatCurrency(step.buyAmount) }}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span class="text-muted-foreground text-sm">
+                        {{ step.index === 0 ? '—' : '-' + formatCurrency(step.gridSpacing) }}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span :class="step.priceDropPercent >= 0 ? 'text-red-500' : 'text-green-500'">

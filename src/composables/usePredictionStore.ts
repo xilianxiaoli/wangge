@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { useStorage } from '@vueuse/core'
-import type { GridStep } from './useGridCalculator'
+import type { GridStep, GridSpacingMode } from './useGridCalculator'
 
 export interface GridParameters {
   stockCode?: string
@@ -11,6 +11,9 @@ export interface GridParameters {
   sellAmount: number
   gridCount: number
   maxInvestment: number
+  spacingMode?: GridSpacingMode
+  buyGridFixed?: number
+  spacingFactor?: number
 }
 
 export interface GridPrediction {

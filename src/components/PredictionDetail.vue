@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePredictionStore, type GridPrediction } from '@/composables/usePredictionStore'
-import { useGridCalculator } from '@/composables/useGridCalculator'
+import { useGridCalculator, type GridSpacingMode } from '@/composables/useGridCalculator'
 import html2canvas from 'html2canvas'
 import { ArrowLeft, Download, Image, Edit, Copy, Trash2, Calculator } from 'lucide-vue-next'
 import {
@@ -58,9 +58,18 @@ const {
   sellAmount,
   gridCount,
   maxInvestment,
+  spacingMode,
+  buyGridFixed,
+  spacingFactor,
   gridData,
   totalRequiredCapital
 } = useGridCalculator()
+
+const spacingModeLabel: Record<GridSpacingMode, string> = {
+  percent: '等比例间距',
+  fixed: '等价格间距',
+  variable: '变间距网格',
+}
 
 // 加载预测数据
 const loadPrediction = () => {
@@ -76,6 +85,9 @@ const loadPrediction = () => {
     sellAmount.value = pred.parameters.sellAmount
     gridCount.value = pred.parameters.gridCount
     maxInvestment.value = pred.parameters.maxInvestment
+    spacingMode.value = pred.parameters.spacingMode ?? 'percent'
+    buyGridFixed.value = pred.parameters.buyGridFixed ?? 0.1
+    spacingFactor.value = pred.parameters.spacingFactor ?? 1.5
 
     // 更新预测结果
     updatePrediction(pred.id, {
@@ -125,10 +137,11 @@ const formatDate = (dateString: string) => {
 const exportToCSV = () => {
   if (!prediction.value) return
   
-  const headers = ['网格序号', '当前价格', '相比初始涨跌', '买入金额', '累计投入', '持仓均价', '持仓数量', '浮动盈亏', '盈亏比例', '资金警告']
+  const headers = ['网格序号', '当前价格', '本格间距', '相比初始涨跌', '买入金额', '累计投入', '持仓均价', '持仓数量', '浮动盈亏', '盈亏比例', '资金警告']
   const rows = gridData.value.map(step => [
     step.index,
     step.buyPrice.toFixed(4),
+    step.index === 0 ? '—' : step.gridSpacing.toFixed(4),
     step.priceDropPercent.toFixed(2) + '%',
     step.buyAmount.toFixed(2),
     step.totalInvestment.toFixed(2),
@@ -281,14 +294,34 @@ const stats = computed(() => {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 mb-4">
+            <div class="col-span-2 md:col-span-4 flex items-center gap-2">
+              <span class="text-sm text-muted-foreground">间距模式：</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
+                {{ spacingModeLabel[prediction.parameters.spacingMode ?? 'percent'] }}
+              </span>
+              <template v-if="prediction.parameters.spacingMode === 'fixed'">
+                <span class="text-sm text-muted-foreground ml-2">每格下跌 {{ formatCurrency(prediction.parameters.buyGridFixed ?? 0) }}</span>
+              </template>
+              <template v-else-if="prediction.parameters.spacingMode === 'variable'">
+                <span class="text-sm text-muted-foreground ml-2">加速系数 {{ prediction.parameters.spacingFactor ?? 1.5 }}</span>
+              </template>
+            </div>
+          </div>
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             <div class="text-center">
               <div class="text-sm text-muted-foreground">初始价格</div>
               <div class="text-lg font-semibold">{{ formatCurrency(prediction.parameters.initialPrice) }}</div>
             </div>
             <div class="text-center">
-              <div class="text-sm text-muted-foreground">买入网格</div>
-              <div class="text-lg font-semibold">{{ prediction.parameters.buyGridPercent }}%</div>
+              <div class="text-sm text-muted-foreground">
+                {{ prediction.parameters.spacingMode === 'fixed' ? '每格下跌' : '买入网格' }}
+              </div>
+              <div class="text-lg font-semibold">
+                {{ prediction.parameters.spacingMode === 'fixed'
+                  ? formatCurrency(prediction.parameters.buyGridFixed ?? 0)
+                  : prediction.parameters.buyGridPercent + '%' }}
+              </div>
             </div>
             <div class="text-center">
               <div class="text-sm text-muted-foreground">卖出网格</div>
@@ -393,6 +426,7 @@ const stats = computed(() => {
                   <TableRow>
                     <TableHead class="w-[60px]">序号</TableHead>
                     <TableHead>当前价格</TableHead>
+                    <TableHead>本格间距</TableHead>
                     <TableHead>相比初始</TableHead>
                     <TableHead>买入金额</TableHead>
                     <TableHead>累计投入</TableHead>
@@ -420,6 +454,11 @@ const stats = computed(() => {
                           买入 {{ formatCurrency(step.buyAmount) }}
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span class="text-muted-foreground text-sm">
+                        {{ step.index === 0 ? '—' : '-' + formatCurrency(step.gridSpacing) }}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span :class="step.priceDropPercent >= 0 ? 'text-red-500' : 'text-green-500'">
