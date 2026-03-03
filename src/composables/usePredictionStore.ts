@@ -15,6 +15,8 @@ export interface GridParameters {
   buyGridFixed?: number
   spacingFactor?: number
   amountMode?: AmountMode
+  baseShares?: number
+  sharesIncrement?: number
   amountMultiplier?: number
 }
 

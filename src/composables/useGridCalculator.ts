@@ -4,13 +4,14 @@ import { useStorage } from '@vueuse/core'
 // 间距模式：等比例(percent) | 等价格(fixed) | 变间距(variable)
 export type GridSpacingMode = 'percent' | 'fixed' | 'variable'
 
-// 买入金额模式：固定等额(fixed) | 递进加仓(progressive)
-export type AmountMode = 'fixed' | 'progressive'
+// 买入金额模式：固定等额(fixed) | 温和递进-固定增股(incremental) | 马丁格尔-指数倍数(multiplier)
+export type AmountMode = 'fixed' | 'incremental' | 'multiplier'
 
 export interface GridStep {
   index: number
   buyPrice: number
   buyAmount: number
+  buyShares: number     // 本格入股数
   sellPrice: number
   sellAmount: number
   totalInvestment: number
@@ -40,9 +41,13 @@ export function useGridCalculator() {
   // 变间距：加速系数（>1 越大越稀疏，推荐 1.2~2.0）
   const spacingFactor = useStorage('wangge-spacingFactor', 1.5)
 
-  // 买入金额模式：固定等额 / 递进加仓
+  // 买入金额模式
   const amountMode = useStorage<AmountMode>('wangge-amountMode', 'fixed')
-  // 递进加仓倍数（每格金额 = 上一格 × 倍数，推荐 1.2~1.5）
+  // incremental：首格股数（股）
+  const baseShares = useStorage('wangge-baseShares', 1000)
+  // incremental：每格固定增加股数
+  const sharesIncrement = useStorage('wangge-sharesIncrement', 200)
+  // multiplier：指数倍数（马丁格尔，每格金额 = 上格 × 倍数）
   const amountMultiplier = useStorage('wangge-amountMultiplier', 1.5)
 
   /**
@@ -94,11 +99,23 @@ export function useGridCalculator() {
       const prevPrice = i === 0 ? initialPrice.value : calcBuyPrice(i - 1)
       const gridSpacing = prevPrice - price
 
-      // 根据买入金额模式计算本格投入
-      const invest = amountMode.value === 'progressive'
-        ? buyAmount.value * Math.pow(amountMultiplier.value, i)
-        : buyAmount.value
-      const sharesBought = invest / price
+      // 根据买入金额模式计算本格入股数和投入金额
+      let sharesBought: number
+      let invest: number
+
+      if (amountMode.value === 'incremental') {
+        // 温和递进：首格 baseShares 股，每格递增 sharesIncrement 股
+        sharesBought = baseShares.value + sharesIncrement.value * i
+        invest = sharesBought * price
+      } else if (amountMode.value === 'multiplier') {
+        // 马丁格尔：每格金额 = 基础金额 × 倍数^i
+        invest = buyAmount.value * Math.pow(amountMultiplier.value, i)
+        sharesBought = invest / price
+      } else {
+        // 固定等额
+        invest = buyAmount.value
+        sharesBought = invest / price
+      }
 
       currentInvestment += invest
       currentShares += sharesBought
@@ -120,6 +137,7 @@ export function useGridCalculator() {
         index: i,
         buyPrice: price,
         buyAmount: invest,
+        buyShares: sharesBought,
         sellPrice,
         sellAmount: sellAmount.value,
         totalInvestment: currentInvestment,
@@ -154,6 +172,8 @@ export function useGridCalculator() {
     buyGridFixed.value = 0.1
     spacingFactor.value = 1.5
     amountMode.value = 'fixed'
+    baseShares.value = 1000
+    sharesIncrement.value = 200
     amountMultiplier.value = 1.5
   }
 
@@ -169,6 +189,8 @@ export function useGridCalculator() {
     buyGridFixed,
     spacingFactor,
     amountMode,
+    baseShares,
+    sharesIncrement,
     amountMultiplier,
     gridData,
     totalRequiredCapital,

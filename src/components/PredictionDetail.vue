@@ -62,6 +62,8 @@ const {
   buyGridFixed,
   spacingFactor,
   amountMode,
+  baseShares,
+  sharesIncrement,
   amountMultiplier,
   gridData,
   totalRequiredCapital
@@ -75,7 +77,8 @@ const spacingModeLabel: Record<GridSpacingMode, string> = {
 
 const amountModeLabel: Record<AmountMode, string> = {
   fixed: '固定等额',
-  progressive: '递进加仓',
+  incremental: '温和递进',
+  multiplier: '马丁格尔',
 }
 
 // 加载预测数据
@@ -96,6 +99,8 @@ const loadPrediction = () => {
     buyGridFixed.value = pred.parameters.buyGridFixed ?? 0.1
     spacingFactor.value = pred.parameters.spacingFactor ?? 1.5
     amountMode.value = pred.parameters.amountMode ?? 'fixed'
+    baseShares.value = pred.parameters.baseShares ?? 1000
+    sharesIncrement.value = pred.parameters.sharesIncrement ?? 200
     amountMultiplier.value = pred.parameters.amountMultiplier ?? 1.5
 
     // 更新预测结果
@@ -322,7 +327,12 @@ const stats = computed(() => {
                 <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-600">
                   {{ amountModeLabel[prediction.parameters.amountMode ?? 'fixed'] }}
                 </span>
-                <template v-if="prediction.parameters.amountMode === 'progressive'">
+                <template v-if="prediction.parameters.amountMode === 'incremental'">
+                  <span class="text-sm text-muted-foreground">
+                    首格 {{ prediction.parameters.baseShares ?? 1000 }} 股，每格增 {{ prediction.parameters.sharesIncrement ?? 200 }} 股
+                  </span>
+                </template>
+                <template v-else-if="prediction.parameters.amountMode === 'multiplier'">
                   <span class="text-sm text-muted-foreground">加仓倍数 {{ prediction.parameters.amountMultiplier ?? 1.5 }}x</span>
                 </template>
               </div>
