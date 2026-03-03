@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { usePredictionStore, type GridPrediction } from '@/composables/usePredictionStore'
-import { useGridCalculator, type GridSpacingMode } from '@/composables/useGridCalculator'
+import { useGridCalculator, type GridSpacingMode, type AmountMode } from '@/composables/useGridCalculator'
 import html2canvas from 'html2canvas'
 import { ArrowLeft, Download, Image, Edit, Copy, Trash2, Calculator } from 'lucide-vue-next'
 import {
@@ -61,6 +61,8 @@ const {
   spacingMode,
   buyGridFixed,
   spacingFactor,
+  amountMode,
+  amountMultiplier,
   gridData,
   totalRequiredCapital
 } = useGridCalculator()
@@ -69,6 +71,11 @@ const spacingModeLabel: Record<GridSpacingMode, string> = {
   percent: '等比例间距',
   fixed: '等价格间距',
   variable: '变间距网格',
+}
+
+const amountModeLabel: Record<AmountMode, string> = {
+  fixed: '固定等额',
+  progressive: '递进加仓',
 }
 
 // 加载预测数据
@@ -88,6 +95,8 @@ const loadPrediction = () => {
     spacingMode.value = pred.parameters.spacingMode ?? 'percent'
     buyGridFixed.value = pred.parameters.buyGridFixed ?? 0.1
     spacingFactor.value = pred.parameters.spacingFactor ?? 1.5
+    amountMode.value = pred.parameters.amountMode ?? 'fixed'
+    amountMultiplier.value = pred.parameters.amountMultiplier ?? 1.5
 
     // 更新预测结果
     updatePrediction(pred.id, {
@@ -295,17 +304,28 @@ const stats = computed(() => {
         </CardHeader>
         <CardContent>
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 mb-4">
-            <div class="col-span-2 md:col-span-4 flex items-center gap-2">
-              <span class="text-sm text-muted-foreground">间距模式：</span>
-              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
-                {{ spacingModeLabel[prediction.parameters.spacingMode ?? 'percent'] }}
-              </span>
-              <template v-if="prediction.parameters.spacingMode === 'fixed'">
-                <span class="text-sm text-muted-foreground ml-2">每格下跌 {{ formatCurrency(prediction.parameters.buyGridFixed ?? 0) }}</span>
-              </template>
-              <template v-else-if="prediction.parameters.spacingMode === 'variable'">
-                <span class="text-sm text-muted-foreground ml-2">加速系数 {{ prediction.parameters.spacingFactor ?? 1.5 }}</span>
-              </template>
+            <div class="col-span-2 md:col-span-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-muted-foreground">间距模式：</span>
+                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-primary/10 text-primary">
+                  {{ spacingModeLabel[prediction.parameters.spacingMode ?? 'percent'] }}
+                </span>
+                <template v-if="prediction.parameters.spacingMode === 'fixed'">
+                  <span class="text-sm text-muted-foreground">每格下跌 {{ formatCurrency(prediction.parameters.buyGridFixed ?? 0) }}</span>
+                </template>
+                <template v-else-if="prediction.parameters.spacingMode === 'variable'">
+                  <span class="text-sm text-muted-foreground">加速系数 {{ prediction.parameters.spacingFactor ?? 1.5 }}</span>
+                </template>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-muted-foreground">金额模式：</span>
+                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-600">
+                  {{ amountModeLabel[prediction.parameters.amountMode ?? 'fixed'] }}
+                </span>
+                <template v-if="prediction.parameters.amountMode === 'progressive'">
+                  <span class="text-sm text-muted-foreground">加仓倍数 {{ prediction.parameters.amountMultiplier ?? 1.5 }}x</span>
+                </template>
+              </div>
             </div>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">

@@ -4,6 +4,9 @@ import { useStorage } from '@vueuse/core'
 // 间距模式：等比例(percent) | 等价格(fixed) | 变间距(variable)
 export type GridSpacingMode = 'percent' | 'fixed' | 'variable'
 
+// 买入金额模式：固定等额(fixed) | 递进加仓(progressive)
+export type AmountMode = 'fixed' | 'progressive'
+
 export interface GridStep {
   index: number
   buyPrice: number
@@ -36,6 +39,11 @@ export function useGridCalculator() {
   const buyGridFixed = useStorage('wangge-buyGridFixed', 0.1)
   // 变间距：加速系数（>1 越大越稀疏，推荐 1.2~2.0）
   const spacingFactor = useStorage('wangge-spacingFactor', 1.5)
+
+  // 买入金额模式：固定等额 / 递进加仓
+  const amountMode = useStorage<AmountMode>('wangge-amountMode', 'fixed')
+  // 递进加仓倍数（每格金额 = 上一格 × 倍数，推荐 1.2~1.5）
+  const amountMultiplier = useStorage('wangge-amountMultiplier', 1.5)
 
   /**
    * 根据当前模式计算第 i 格的买入价格
@@ -86,7 +94,10 @@ export function useGridCalculator() {
       const prevPrice = i === 0 ? initialPrice.value : calcBuyPrice(i - 1)
       const gridSpacing = prevPrice - price
 
-      const invest = buyAmount.value
+      // 根据买入金额模式计算本格投入
+      const invest = amountMode.value === 'progressive'
+        ? buyAmount.value * Math.pow(amountMultiplier.value, i)
+        : buyAmount.value
       const sharesBought = invest / price
 
       currentInvestment += invest
@@ -142,6 +153,8 @@ export function useGridCalculator() {
     spacingMode.value = 'percent'
     buyGridFixed.value = 0.1
     spacingFactor.value = 1.5
+    amountMode.value = 'fixed'
+    amountMultiplier.value = 1.5
   }
 
   return {
@@ -155,6 +168,8 @@ export function useGridCalculator() {
     spacingMode,
     buyGridFixed,
     spacingFactor,
+    amountMode,
+    amountMultiplier,
     gridData,
     totalRequiredCapital,
     resetDefaults

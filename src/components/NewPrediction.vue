@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { usePredictionStore } from '@/composables/usePredictionStore'
 import { useGridCalculator } from '@/composables/useGridCalculator'
-import type { GridSpacingMode } from '@/composables/useGridCalculator'
+import type { GridSpacingMode, AmountMode } from '@/composables/useGridCalculator'
 import { ArrowLeft, Save, Calculator, RotateCcw } from 'lucide-vue-next'
 import {
   Card,
@@ -39,10 +39,59 @@ const {
   spacingMode,
   buyGridFixed,
   spacingFactor,
+  amountMode,
+  amountMultiplier,
   gridData,
   totalRequiredCapital,
   resetDefaults
 } = useGridCalculator()
+
+interface AmountModeOption {
+  value: AmountMode
+  label: string
+  desc: string
+  detail: string
+  formula: string
+  example: { label: string; value: string }[]
+  pros: string[]
+  cons: string[]
+}
+
+const amountModeOptions: AmountModeOption[] = [
+  {
+    value: 'fixed',
+    label: '固定等额',
+    desc: '每格买入相同金额，风险均摊',
+    detail: '每格投入相同金额，简单直接，资金消耗线性可预测',
+    formula: '第 i 格买入金额 = 基础金额',
+    example: [
+      { label: '基础金额 ¥1000', value: '' },
+      { label: '第 0 格', value: '¥1,000' },
+      { label: '第 1 格', value: '¥1,000' },
+      { label: '第 2 格', value: '¥1,000' },
+      { label: '共 10 格总投入', value: '¥11,000' },
+    ],
+    pros: ['资金消耗线性，总投入精确可控', '每格风险相同，心理压力均衡', '适合新手和保守型投资者'],
+    cons: ['深跌时买入力度不足，均价下降缓慢', '回本所需涨幅相对较高'],
+  },
+  {
+    value: 'progressive',
+    label: '递进加仓（马丁格尔）',
+    desc: '越跌越多买，快速拉低均价，但资金消耗呈指数增长',
+    detail: '每格买入金额 = 上一格金额 × 加仓倍数，越跌投入越多',
+    formula: '第 i 格买入金额 = 基础金额 × 倍数ⁱ',
+    example: [
+      { label: '基础金额 ¥1000，倍数 1.5', value: '' },
+      { label: '第 0 格', value: '¥1,000' },
+      { label: '第 1 格', value: '¥1,500' },
+      { label: '第 2 格', value: '¥2,250' },
+      { label: '第 3 格', value: '¥3,375' },
+      { label: '共 10 格总投入', value: '≈ ¥113,330' },
+    ],
+    pros: ['均价下降速度更快，小涨即可回本', '深跌时重仓抄底，收益弹性大', '适合高确定性品种（如宽基 ETF）'],
+    cons: ['资金消耗指数级增长，务必提前算好总投入', '倍数越大格数越少，调参需谨慎', '切勿用于有归零风险的品种'],
+  },
+]
 
 interface SpacingModeOption {
   value: GridSpacingMode
@@ -139,6 +188,8 @@ const savePrediction = () => {
       spacingMode: spacingMode.value,
       buyGridFixed: buyGridFixed.value,
       spacingFactor: spacingFactor.value,
+      amountMode: amountMode.value,
+      amountMultiplier: amountMultiplier.value,
     },
     predictionDescription.value.trim() || undefined
   )
@@ -376,9 +427,78 @@ const formatPercent = (value: number) => {
               </div>
             </template>
 
+            <!-- 买入金额模式 -->
+            <div class="space-y-2">
+              <Label>买入金额模式</Label>
+              <div class="grid grid-cols-1 gap-2">
+                <template v-for="opt in amountModeOptions" :key="opt.value">
+                  <button
+                    type="button"
+                    class="flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors"
+                    :class="amountMode === opt.value
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'"
+                    @click="amountMode = opt.value"
+                  >
+                    <span class="text-sm font-medium">{{ opt.label }}</span>
+                    <span class="text-xs text-muted-foreground">{{ opt.desc }}</span>
+                  </button>
+                  <div
+                    v-if="amountMode === opt.value"
+                    class="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-3 text-xs"
+                  >
+                    <div>
+                      <div class="font-semibold text-primary mb-1">计算公式</div>
+                      <div class="text-muted-foreground">{{ opt.detail }}</div>
+                      <div class="mt-1 font-mono bg-background/60 rounded px-2 py-1 text-[11px] text-foreground">
+                        {{ opt.formula }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="font-semibold text-primary mb-1">示例</div>
+                      <div class="space-y-0.5">
+                        <div v-for="(ex, i) in opt.example" :key="i">
+                          <template v-if="ex.value === ''">
+                            <div class="text-muted-foreground italic mt-1">{{ ex.label }}</div>
+                          </template>
+                          <template v-else>
+                            <div class="flex justify-between">
+                              <span class="text-muted-foreground">{{ ex.label }}</span>
+                              <span class="font-mono text-foreground">{{ ex.value }}</span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <div class="font-semibold text-green-600 mb-1">适合场景</div>
+                        <ul class="space-y-0.5">
+                          <li v-for="pro in opt.pros" :key="pro" class="text-muted-foreground flex gap-1">
+                            <span class="text-green-500 shrink-0">✓</span>{{ pro }}
+                          </li>
+                        </ul>
+                      </div>
+                      <div>
+                        <div class="font-semibold text-orange-500 mb-1">注意事项</div>
+                        <ul class="space-y-0.5">
+                          <li v-for="con in opt.cons" :key="con" class="text-muted-foreground flex gap-1">
+                            <span class="text-orange-400 shrink-0">!</span>{{ con }}
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- 买入金额参数 -->
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-2">
-                <Label for="buyAmount">每格买入 (元) *</Label>
+                <Label for="buyAmount">
+                  {{ amountMode === 'progressive' ? '基础金额 (元)' : '每格买入 (元)' }} *
+                </Label>
                 <Input 
                   id="buyAmount" 
                   type="number" 
@@ -388,7 +508,19 @@ const formatPercent = (value: number) => {
                   :class="{ 'border-red-500': buyAmount <= 0 }"
                 />
               </div>
-              <div class="space-y-2">
+              <div class="space-y-2" v-if="amountMode === 'progressive'">
+                <Label for="amountMultiplier">加仓倍数</Label>
+                <Input 
+                  id="amountMultiplier" 
+                  type="number" 
+                  v-model.number="amountMultiplier" 
+                  min="1.1" 
+                  max="3.0" 
+                  step="0.1"
+                />
+                <p class="text-xs text-muted-foreground">推荐 1.2~1.5</p>
+              </div>
+              <div class="space-y-2" v-else>
                 <Label for="sellAmount">每格卖出 (元) *</Label>
                 <Input 
                   id="sellAmount" 
