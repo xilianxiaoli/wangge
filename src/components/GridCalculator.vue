@@ -39,10 +39,67 @@ const {
   resetDefaults
 } = useGridCalculator()
 
-const spacingModeOptions: { value: GridSpacingMode; label: string; desc: string }[] = [
-  { value: 'percent', label: '等比例间距', desc: '每格下跌固定百分比，越跌绝对间距越小' },
-  { value: 'fixed', label: '等价格间距', desc: '每格下跌固定金额，间距均匀直觉' },
-  { value: 'variable', label: '变间距网格', desc: '靠近初始价密集，越远间距越大' },
+interface SpacingModeOption {
+  value: GridSpacingMode
+  label: string
+  desc: string
+  detail: string
+  formula: string
+  example: { label: string; value: string }[]
+  pros: string[]
+  cons: string[]
+}
+
+const spacingModeOptions: SpacingModeOption[] = [
+  {
+    value: 'percent',
+    label: '等比例间距',
+    desc: '每格下跌固定百分比，越跌绝对间距越小',
+    detail: '每格买入价 = 上一格价格 × (1 − 间距%)',
+    formula: '第 i 格价格 = 初始价 × (1 − 间距%)ⁱ',
+    example: [
+      { label: '初始价 ¥10，间距 5%', value: '' },
+      { label: '第 0 格', value: '¥10.00（间距 —）' },
+      { label: '第 1 格', value: '¥9.50（间距 ¥0.50）' },
+      { label: '第 2 格', value: '¥9.025（间距 ¥0.475）' },
+      { label: '第 3 格', value: '¥8.574（间距 ¥0.451）' },
+    ],
+    pros: ['间距随价格同比缩小，保证每格涨回上一格的比例相同', '网格数量不受限制，价格永远不会到 0', '适合百分比思维的投资者'],
+    cons: ['绝对间距越来越小，深跌时买入力度弱', '回本所需涨幅固定（始终等于间距%），理解起来稍抽象'],
+  },
+  {
+    value: 'fixed',
+    label: '等价格间距',
+    desc: '每格下跌固定金额，间距均匀直觉',
+    detail: '每格买入价 = 上一格价格 − 固定金额',
+    formula: '第 i 格价格 = 初始价 − 每格下跌金额 × i',
+    example: [
+      { label: '初始价 ¥10，每格下跌 ¥0.50', value: '' },
+      { label: '第 0 格', value: '¥10.00（间距 —）' },
+      { label: '第 1 格', value: '¥9.50（间距 ¥0.50）' },
+      { label: '第 2 格', value: '¥9.00（间距 ¥0.50）' },
+      { label: '第 3 格', value: '¥8.50（间距 ¥0.50）' },
+    ],
+    pros: ['最直觉，挂单价格一眼看懂', '适合 A 股散户手动操作参考', '每格回本所需涨幅随价格下跌而增大，天然风险提示'],
+    cons: ['价格下跌到 0 时触底，网格数量受初始价限制', '深跌时百分比间距变大，回本越来越难'],
+  },
+  {
+    value: 'variable',
+    label: '变间距网格',
+    desc: '靠近初始价密集，越远间距越大',
+    detail: '第 k 格的间距 = 基础间距 × 加速系数^(k−1)，间距指数增长',
+    formula: '第 i 格价格 = 初始价 − Σ(k=1..i) [基础间距 × 系数^(k−1)]',
+    example: [
+      { label: '初始价 ¥10，基础间距 2%（¥0.20），加速系数 1.5', value: '' },
+      { label: '第 0 格', value: '¥10.00（间距 —）' },
+      { label: '第 1 格', value: '¥9.80（间距 ¥0.20）' },
+      { label: '第 2 格', value: '¥9.50（间距 ¥0.30）' },
+      { label: '第 3 格', value: '¥9.05（间距 ¥0.45）' },
+      { label: '第 4 格', value: '¥8.375（间距 ¥0.675）' },
+    ],
+    pros: ['小跌时少量试探，大跌时重仓抄底，资金效率高', '加速系数可调，灵活控制激进程度', '适合高度看好但不确定底部的品种'],
+    cons: ['加速系数过大时格数极少，需要仔细调参', '计算逻辑较复杂，不适合手动盯盘'],
+  },
 ]
 
 const exportRef = ref<HTMLElement | null>(null)
@@ -130,19 +187,72 @@ const captureScreenshot = async () => {
           <div class="space-y-2">
             <Label>网格间距模式</Label>
             <div class="grid grid-cols-1 gap-2">
-              <button
-                v-for="opt in spacingModeOptions"
-                :key="opt.value"
-                type="button"
-                class="flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors"
-                :class="spacingMode === opt.value
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-border hover:border-primary/50 hover:bg-muted/50'"
-                @click="spacingMode = opt.value"
-              >
-                <span class="text-sm font-medium">{{ opt.label }}</span>
-                <span class="text-xs text-muted-foreground">{{ opt.desc }}</span>
-              </button>
+              <template v-for="opt in spacingModeOptions" :key="opt.value">
+                <button
+                  type="button"
+                  class="flex flex-col items-start px-3 py-2 rounded-md border text-left transition-colors"
+                  :class="spacingMode === opt.value
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/50'"
+                  @click="spacingMode = opt.value"
+                >
+                  <span class="text-sm font-medium">{{ opt.label }}</span>
+                  <span class="text-xs text-muted-foreground">{{ opt.desc }}</span>
+                </button>
+
+                <!-- 选中时展示详细说明 -->
+                <div
+                  v-if="spacingMode === opt.value"
+                  class="rounded-md border border-primary/20 bg-primary/5 p-3 space-y-3 text-xs"
+                >
+                  <!-- 公式 -->
+                  <div>
+                    <div class="font-semibold text-primary mb-1">计算公式</div>
+                    <div class="text-muted-foreground">{{ opt.detail }}</div>
+                    <div class="mt-1 font-mono bg-background/60 rounded px-2 py-1 text-[11px] text-foreground">
+                      {{ opt.formula }}
+                    </div>
+                  </div>
+
+                  <!-- 示例 -->
+                  <div>
+                    <div class="font-semibold text-primary mb-1">示例</div>
+                    <div class="space-y-0.5">
+                      <div v-for="(ex, i) in opt.example" :key="i">
+                        <template v-if="ex.value === ''">
+                          <div class="text-muted-foreground italic mt-1">{{ ex.label }}</div>
+                        </template>
+                        <template v-else>
+                          <div class="flex justify-between">
+                            <span class="text-muted-foreground">{{ ex.label }}</span>
+                            <span class="font-mono text-foreground">{{ ex.value }}</span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 优缺点 -->
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <div class="font-semibold text-green-600 mb-1">适合场景</div>
+                      <ul class="space-y-0.5">
+                        <li v-for="pro in opt.pros" :key="pro" class="text-muted-foreground flex gap-1">
+                          <span class="text-green-500 shrink-0">✓</span>{{ pro }}
+                        </li>
+                      </ul>
+                    </div>
+                    <div>
+                      <div class="font-semibold text-orange-500 mb-1">注意事项</div>
+                      <ul class="space-y-0.5">
+                        <li v-for="con in opt.cons" :key="con" class="text-muted-foreground flex gap-1">
+                          <span class="text-orange-400 shrink-0">!</span>{{ con }}
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
           </div>
 
