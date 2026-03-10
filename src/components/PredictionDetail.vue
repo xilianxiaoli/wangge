@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { usePredictionStore, type GridPrediction } from '@/composables/usePredictionStore'
 import { useGridCalculator, type GridSpacingMode, type AmountMode } from '@/composables/useGridCalculator'
+import { formatCurrency, formatPercent, formatDate } from '@/lib/formatters'
 import html2canvas from 'html2canvas'
 import { ArrowLeft, Download, Image, Edit, Copy, Trash2, Calculator } from 'lucide-vue-next'
 import {
@@ -117,36 +118,6 @@ onMounted(() => {
   loadPrediction()
 })
 
-// Format currency
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value)
-}
-
-// Format percent
-const formatPercent = (value: number) => {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'percent',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value / 100)
-}
-
-// Format date
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 // Export to CSV
 const exportToCSV = () => {
   if (!prediction.value) return
@@ -176,10 +147,12 @@ const exportToCSV = () => {
   ].map(row => row.join(',')).join('\n')
 
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
+  link.href = objectUrl
   link.download = `${prediction.value.name}_${new Date().toISOString().split('T')[0]}.csv`
   link.click()
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100)
 }
 
 // Capture Screenshot
@@ -196,7 +169,7 @@ const captureScreenshot = async () => {
     link.download = `${prediction.value.name}_截图_${new Date().toISOString().split('T')[0]}.png`
     link.href = canvas.toDataURL()
     link.click()
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Screenshot failed:', error)
     alert('截图生成失败，请重试')
   }

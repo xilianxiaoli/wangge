@@ -90,13 +90,15 @@ export function useGridCalculator() {
     if (spacingMode.value === 'fixed' && buyGridFixed.value <= 0) return []
     if (spacingMode.value === 'variable' && (buyGridPercent.value <= 0 || spacingFactor.value <= 0)) return []
 
+    // Track previous price to avoid calling calcBuyPrice(i-1) on every iteration
+    let prevPrice = initialPrice.value
+
     for (let i = 0; i <= gridCount.value; i++) {
       const price = calcBuyPrice(i)
 
       // 变间距/等价格可能导致价格 ≤ 0，终止
       if (price <= 0) break
 
-      const prevPrice = i === 0 ? initialPrice.value : calcBuyPrice(i - 1)
       const gridSpacing = prevPrice - price
 
       // 根据买入金额模式计算本格入股数和投入金额
@@ -149,6 +151,8 @@ export function useGridCalculator() {
         gridSpacing,
         isWarning
       })
+
+      prevPrice = price
     }
 
     return steps
