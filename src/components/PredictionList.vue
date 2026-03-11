@@ -80,7 +80,7 @@ const sortedPredictions = computed(() => {
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">网格预测管理</h1>
-        <p class="text-muted-foreground">管理和查看您的股票网格交易预测</p>
+        <p class="text-muted-foreground">管理和查看您的网格交易预测</p>
       </div>
       <Button @click="emit('createNew')" class="flex items-center gap-2">
         <Plus class="w-4 h-4" />
