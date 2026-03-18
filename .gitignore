@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 /image
+
+# TypeScript/Vue compilation artifacts in source tree
+src/**/*.js
+src/**/*.d.ts

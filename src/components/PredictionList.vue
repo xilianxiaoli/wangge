@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePredictionStore } from '@/composables/usePredictionStore'
+import { formatCurrency, formatDateShort } from '@/lib/formatters'
 import { Plus, Eye, Copy, Trash2, TrendingDown, Calendar, DollarSign } from 'lucide-vue-next'
 import {
   Card,
@@ -29,27 +30,6 @@ const emit = defineEmits<{
 }>()
 
 const { predictions, stats, deletePrediction, duplicatePrediction } = usePredictionStore()
-
-// Format currency
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('zh-CN', {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(value)
-}
-
-// Format date
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
 
 // Handle delete
 const handleDelete = (id: string) => {
@@ -122,7 +102,7 @@ const sortedPredictions = computed(() => {
         <CardContent>
           <div class="text-2xl font-bold">
             {{ predictions.length > 0 
-              ? formatCurrency(predictions.reduce((sum, p) => sum + (p.parameters.buyAmount * p.parameters.gridCount), 0) / predictions.length)
+              ? formatCurrency(predictions.reduce((sum, p) => sum + (p.parameters.buyAmount * p.parameters.gridCount), 0) / predictions.length, 0)
               : '¥0' 
             }}
           </div>
@@ -155,7 +135,7 @@ const sortedPredictions = computed(() => {
             <div class="flex-1 min-w-0">
               <CardTitle class="text-lg truncate">{{ prediction.name }}</CardTitle>
               <CardDescription class="text-sm">
-                {{ formatDate(prediction.updatedAt) }}
+                {{ formatDateShort(prediction.updatedAt) }}
               </CardDescription>
             </div>
             <Badge variant="secondary" class="ml-2">
@@ -168,11 +148,11 @@ const sortedPredictions = computed(() => {
           <div class="grid grid-cols-2 gap-2 text-sm">
             <div>
               <span class="text-muted-foreground">初始价格</span>
-              <div class="font-medium">{{ formatCurrency(prediction.parameters.initialPrice) }}</div>
+              <div class="font-medium">{{ formatCurrency(prediction.parameters.initialPrice, 0) }}</div>
             </div>
             <div>
               <span class="text-muted-foreground">每格买入</span>
-              <div class="font-medium">{{ formatCurrency(prediction.parameters.buyAmount) }}</div>
+              <div class="font-medium">{{ formatCurrency(prediction.parameters.buyAmount, 0) }}</div>
             </div>
             <div>
               <span class="text-muted-foreground">买入网格</span>
@@ -181,7 +161,7 @@ const sortedPredictions = computed(() => {
             <div>
               <span class="text-muted-foreground">预计投入</span>
               <div class="font-medium">
-                {{ formatCurrency(prediction.parameters.buyAmount * prediction.parameters.gridCount) }}
+                {{ formatCurrency(prediction.parameters.buyAmount * prediction.parameters.gridCount, 0) }}
               </div>
             </div>
           </div>
